@@ -34,8 +34,8 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 # Подключение к MongoDB
 MONGO_URL = "mongodb+srv://Axeon:erkosh2008kaldybek@limitlessrising.gtbj5.mongodb.net/?retryWrites=true&w=majority"
-client = AsyncIOMotorClient(MONGO_URL)
-db = client["discord_bot"]
+mongo_client = AsyncIOMotorClient(MONGO_URL)
+db = mongo_client["discord_bot"]
 collection = db["players"]
 
 
