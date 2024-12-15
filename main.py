@@ -348,10 +348,9 @@ async def help_commands(ctx):
 
 # Запускаем Flask-сервер
 keep_alive()
-
+                
 # Запуск бота
 from dotenv import load_dotenv
 load_dotenv()
 token = os.getenv("BOT_TOKEN")
-client.run(token)
-                
+bot.run(token)  # Исправлено
