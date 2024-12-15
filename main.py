@@ -1,5 +1,11 @@
-import discord
 import os
+
+# Проверка переменной окружения BOT_ENABLED
+if os.getenv("BOT_ENABLED", "true").lower() != "true":
+    print("Бот отключен через переменную окружения BOT_ENABLED.")
+    exit()
+
+import discord
 from discord.ext import commands
 from motor.motor_asyncio import AsyncIOMotorClient
 from flask import Flask
