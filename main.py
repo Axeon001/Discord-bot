@@ -350,5 +350,5 @@ keep_alive()
 
 # Запуск бота
 bot.run(
-    "MTMxNzIzNjMxNzYyMDQwODQyMA.GV6tA2.7mghyRaN9JS5IYR2fT6gKxNHz1M9tJ1yMk_Q6k")
+    "BOT_TOKEN")
                 
