@@ -348,6 +348,25 @@ async def help_commands(ctx):
 
 # Запускаем Flask-сервер
 keep_alive()
+
+# Переменная для хранения состояния бота
+bot_active = True  # Значение по умолчанию - True (бот включен)
+
+@bot.command()
+async def toggle_bot(ctx):
+    global bot_active
+    bot_active = not bot_active  # Переключение состояния бота
+
+    if bot_active:
+        await ctx.send("Бот включен.")
+    else:
+        await ctx.send("Бот выключен. Не будет потреблять ресурсы.")
+
+@bot.event
+async def on_message(message):
+    if not bot_active and message.author != bot.user:
+        return  # Игнорировать все сообщения, если бот выключен
+    await bot.process_commands(message)
                 
 # Запуск бота
 from dotenv import load_dotenv
