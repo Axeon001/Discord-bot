@@ -145,40 +145,6 @@ async def register(ctx):
         color=discord.Color.green()))
 
 
-# Команда интерфейса игрока
-@bot.command()
-async def interface(ctx):
-    user_id = str(ctx.author.id)
-    print(f"Запрос интерфейса для пользователя с ID: {user_id}")
-
-    try:
-        player = await collection.find_one({"_id": user_id})
-        if not player:
-            print(f"Пользователь с ID {user_id} не найден в базе.")
-            await ctx.send("Вы ещё не зарегистрированы.")
-            return
-
-        # Выводим найденные данные
-        print(f"Найден игрок: {player}")
-
-        # Создаём embed с данными игрока
-        embed = discord.Embed(title=f"Интерфейс персонажа: {player['name']}",
-                              color=discord.Color.blue())
-        embed.add_field(name="Физическая сила", value=player['strength'])
-        embed.add_field(name="Ловкость", value=player['agility'])
-        embed.add_field(name="Прочность", value=player['durability'])
-        embed.add_field(name="Выносливость", value=player['endurance'])
-        embed.add_field(name="Интеллект", value=player['intellect'])
-        embed.add_field(name="Уровень", value=player['level'])
-        embed.add_field(name="Опыт", value=player['exp'])
-        embed.add_field(name="Ранг", value=player['rank'])
-        embed.add_field(name="Общая сила (OS)", value=player['os'])
-        await ctx.send(embed=embed)
-    except Exception as e:
-        print(f"Ошибка при выполнении команды interface: {e}")
-        await ctx.send("Произошла ошибка при попытке получить данные.")
-
-
 # Команда лидеров
 @bot.command()
 async def leaderboard(ctx):
@@ -193,51 +159,6 @@ async def leaderboard(ctx):
                         value=f"OS: {player['os']} | Ранг: {player['rank']}",
                         inline=False)
     await ctx.send(embed=embed)
-
-
-# Команда добавления опыта (только для администраторов)
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def add_exp(ctx, exp: int, member: discord.Member = None):
-    # Проверка, что количество опыта положительное
-    if exp <= 0:
-        await ctx.send("Количество опыта должно быть положительным.")
-        return
-
-    # Если участник не указан, выдаём опыт вызывающему команду
-    target = member if member else ctx.author
-    user_id = str(target.id)
-
-    # Проверяем, зарегистрирован ли игрок
-    player = await collection.find_one({"_id": user_id})
-    if not player:
-        await ctx.send(f"{target.mention} не зарегистрирован!")
-        return
-
-    # Добавляем опыт и обновляем уровень
-    new_exp = player["exp"] + exp
-    level = player["level"]
-    required_exp = calculate_exp_for_level(level)
-
-    # Повышение уровня, если опыт превышает необходимый
-    while new_exp >= required_exp:
-        new_exp -= required_exp
-        level += 1
-        required_exp = calculate_exp_for_level(level)
-
-    # Обновляем данные в базе
-    await collection.update_one({"_id": user_id},
-                                {"$set": {
-                                    "exp": new_exp,
-                                    "level": level
-                                }})
-
-    # Сообщение о результате
-    await ctx.send(embed=discord.Embed(
-        title="Опыт добавлен!",
-        description=
-        f"{target.mention} получил {exp} опыта!\nТеперь его уровень: {level}\nТекущий опыт: {new_exp}",
-        color=discord.Color.orange()))
 
 
 # Команда обновления OS
@@ -264,30 +185,33 @@ async def update_os(ctx):
                             color=discord.Color.purple()))
 
 
-# Команда reset: Полностью удаляет персонажа и очищает данные из базы
+# Команда сброса персонажа
 @bot.command()
-async def reset(ctx):
-    user_id = str(ctx.author.id)
+@commands.has_permissions(administrator=True)  # Требуем права администратора
+async def reset(ctx, member: discord.Member = None):
+    # Если пинг не был указан, сбрасываем данные для вызывающего пользователя
+    target = member if member else ctx.author
+    user_id = str(target.id)
+
     player = await collection.find_one({"_id": user_id})
     if not player:
-        await ctx.send("Вы не зарегистрированы!")
+        await ctx.send(f"{target.mention} не зарегистрирован!")
         return
 
     # Удаляем персонажа из базы данных
     await collection.delete_one({"_id": user_id})
     await ctx.send(embed=discord.Embed(
         title="Персонаж сброшен!",
-        description=
-        "Ваш персонаж полностью удалён из базы данных. Теперь вы можете зарегистрировать нового персонажа с помощью команды `!register`.",
+        description=(
+            f"{target.mention}, ваш персонаж полностью удалён из базы данных.\n"
+            "Теперь вы можете зарегистрировать нового персонажа с помощью команды `!register`."
+        ),
         color=discord.Color.red()))
 
 
-# Команда редактирования характеристик
 @bot.command()
-async def edit(ctx, stat: str, value: int):
-    if stat not in [
-            "strength", "agility", "durability", "endurance", "intellect"
-    ]:
+async def edit(ctx, stat: str, value: int, member: discord.Member = None):
+    if stat not in ["strength", "agility", "durability", "endurance", "intellect"]:
         await ctx.send(
             "Неверная характеристика. Используйте одну из: strength, agility, durability, endurance, intellect."
         )
@@ -297,58 +221,182 @@ async def edit(ctx, stat: str, value: int):
         await ctx.send("Значение должно быть в пределах от 1 до 100.")
         return
 
-    user_id = str(ctx.author.id)
+    target = member if member else ctx.author
+    user_id = str(target.id)
     player = await collection.find_one({"_id": user_id})
     if not player:
-        await ctx.send("Вы не зарегистрированы!")
+        await ctx.send(f"{target.mention} не зарегистрирован!")
         return
 
     await collection.update_one({"_id": user_id}, {"$set": {stat: value}})
     await ctx.send(embed=discord.Embed(
         title="Характеристика изменена!",
-        description=f"{stat.capitalize()} теперь равно {value}.",
+        description=f"{stat.capitalize()} теперь равно {value} у {target.mention}.",
         color=discord.Color.green()))
 
 
-# Команда помощи с описанием всех команд
+@bot.command()
+async def interface(ctx):
+    target = ctx.author
+    user_id = str(target.id)
+
+    try:
+        player = await collection.find_one({"_id": user_id})
+        if not player:
+            await ctx.send("Вы ещё не зарегистрированы.")
+            return
+
+        # Создаём embed с данными игрока
+        embed = discord.Embed(title=f"Интерфейс персонажа: {player['name']}",
+                              color=discord.Color.blue())
+        embed.add_field(name="Физическая сила", value=player['strength'])
+        embed.add_field(name="Ловкость", value=player['agility'])
+        embed.add_field(name="Прочность", value=player['durability'])
+        embed.add_field(name="Выносливость", value=player['endurance'])
+        embed.add_field(name="Интеллект", value=player['intellect'])
+        embed.add_field(name="Уровень", value=player['level'])
+        embed.add_field(
+            name="Опыт",
+            value=f"{player['exp']} (Доступно очков: {player.get('points', 0)})"
+        )
+        embed.add_field(name="Ранг", value=player['rank'])
+        embed.add_field(name="Общая сила (OS)", value=player['os'])
+        await ctx.send(embed=embed)
+    except Exception as e:
+        print(f"Ошибка при выполнении команды interface: {e}")
+        await ctx.send("Произошла ошибка при попытке получить данные.")
+
+
+@bot.command()
+async def add_exp(ctx, exp: int, member: discord.Member = None):
+    if exp <= 0:
+        await ctx.send("Количество опыта должно быть положительным.")
+        return
+
+    target = member if member else ctx.author
+    user_id = str(target.id)
+    player = await collection.find_one({"_id": user_id})
+    if not player:
+        await ctx.send(f"{target.mention} не зарегистрирован!")
+        return
+
+    new_exp = player["exp"] + exp
+    level = player["level"]
+    points = player.get("points", 0)
+    required_exp = calculate_exp_for_level(level)
+
+    while new_exp >= required_exp:
+        new_exp -= required_exp
+        level += 1
+        points += 5
+        required_exp = calculate_exp_for_level(level)
+
+    await collection.update_one({"_id": user_id},
+                                {"$set": {
+                                    "exp": new_exp,
+                                    "level": level,
+                                    "points": points
+                                }})
+
+    await ctx.send(embed=discord.Embed(
+        title="Опыт добавлен!",
+        description=f"{target.mention} получил {exp} опыта!\nТеперь его уровень: {level}\nДоступные очки: {points}\nТекущий опыт: {new_exp}",
+        color=discord.Color.orange()))
+
+
+@bot.command()
+async def add_points(ctx, stat: str, points: int, member: discord.Member = None):
+    if stat not in ["strength", "agility", "durability", "endurance", "intellect"]:
+        await ctx.send(
+            "Неверная характеристика. Используйте одну из: strength, agility, durability, endurance, intellect."
+        )
+        return
+
+    if points <= 0:
+        await ctx.send("Количество очков должно быть положительным.")
+        return
+
+    target = member if member else ctx.author
+    user_id = str(target.id)
+    player = await collection.find_one({"_id": user_id})
+    if not player:
+        await ctx.send(f"{target.mention} не зарегистрирован!")
+        return
+
+    available_points = player.get("points", 0)
+    if points > available_points:
+        await ctx.send(
+            f"Недостаточно очков! У вас доступно всего {available_points} очков.")
+        return
+
+    new_value = player[stat] + points
+    await collection.update_one(
+        {"_id": user_id},
+        {"$set": {stat: new_value}, "$inc": {"points": -points}})
+
+    await ctx.send(embed=discord.Embed(
+        title="Очки распределены!",
+        description=f"{points} очков добавлено в {stat.capitalize()} {target.mention}.\nТекущая характеристика: {new_value}",
+        color=discord.Color.green()))
+
 @bot.command()
 async def help_commands(ctx):
-    embed = discord.Embed(title="Список доступных команд",
-                          color=discord.Color.blue())
+    embed = discord.Embed(
+        title="Список доступных команд",
+        description="Ниже представлен список всех доступных команд:",
+        color=discord.Color.blue()
+    )
     embed.add_field(
         name="!register",
         value="Регистрация нового персонажа. Укажите имя и характеристики.",
-        inline=False)
+        inline=False
+    )
     embed.add_field(
-        name="!reset",
-        value="Сброс персонажа. Полностью удаляет персонажа из базы данных.",
-        inline=False)
+        name="!reset [@пользователь]",
+        value="Сброс персонажа. Полностью удаляет персонажа из базы данных. (администратор)",
+        inline=False
+    )
     embed.add_field(
         name="!interface",
         value="Показывает интерфейс текущего персонажа с его характеристиками.",
-        inline=False)
-    embed.add_field(name="!leaderboard",
-                    value="Показывает топ-10 игроков по OS (общей силе).",
-                    inline=False)
+        inline=False
+    )
     embed.add_field(
-        name="!add_exp [число]",
-        value="Добавляет указанное количество опыта вашему персонажу.",
-        inline=False)
+        name="!leaderboard",
+        value="Показывает топ-10 игроков по OS (общей силе).",
+        inline=False
+    )
+    embed.add_field(
+        name="!add_exp [число] [@пользователь]",
+        value="Добавляет указанное количество опыта вашему персонажу или указанному пользователю (администратор).",
+        inline=False
+    )
+    embed.add_field(
+        name="!edit [характеристика] [значение] [@пользователь]",
+        value="Редактирует одну из характеристик (strength, agility и т.д.) текущего или указанного пользователя (администратор).",
+        inline=False
+    )
+    embed.add_field(
+        name="!add_points [характеристика] [число] [@пользователь]",
+        value="Добавляет очки в указанную характеристику текущего или другого пользователя. Очки берутся из доступных очков.",
+        inline=False
+    )
     embed.add_field(
         name="!update_os",
-        value=
-        "Обновляет OS (общую силу) и ранг персонажа на основе текущих характеристик.",
-        inline=False)
+        value="Обновляет OS (общую силу) и ранг персонажа на основе текущих характеристик.",
+        inline=False
+    )
     embed.add_field(
-        name="!edit [характеристика] [значение]",
-        value="Редактирует одну из характеристик (strength, agility и т.д.).",
-        inline=False)
+        name="!help_commands",
+        value="Выводит список всех доступных команд с их описанием.",
+        inline=False
+    )
     await ctx.send(embed=embed)
 
 
 # Запускаем Flask-сервер
 keep_alive()
-                
+
 # Запуск бота
 from dotenv import load_dotenv
 load_dotenv()
