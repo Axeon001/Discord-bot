@@ -80,19 +80,28 @@ async def on_ready():
 
 # Команда регистрации
 @bot.command()
-async def register(ctx):
-    user_id = str(ctx.author.id)
+async def register(ctx, member: discord.Member = None):
+    target = member if member else ctx.author
+    user_id = str(target.id)
     player = await collection.find_one({"_id": user_id})
+    
     if player:
-        await ctx.send(f"{ctx.author.mention}, вы уже зарегистрированы!")
+        await ctx.send(f"{target.mention}, уже зарегистрирован!")
+        return
+
+    # Если регистрируем другого пользователя, проверяем права
+    if member and not ctx.author.guild_permissions.administrator:
+        await ctx.send("Вы не можете регистрировать других пользователей!")
         return
 
     # Запрос имени персонажа
-    await ctx.send(f"{ctx.author.mention}, введите имя вашего персонажа:")
+    await ctx.send(f"{target.mention}, введите имя вашего персонажа:")
     try:
-        name_msg = await bot.wait_for('message',
-                                      timeout=30.0,
-                                      check=lambda m: m.author == ctx.author)
+        name_msg = await bot.wait_for(
+            'message', 
+            timeout=30.0, 
+            check=lambda m: m.author == ctx.author
+        )
         name = name_msg.content.strip()
     except:
         await ctx.send(
@@ -102,17 +111,15 @@ async def register(ctx):
 
     # Запрос характеристик
     stats = {}
-    for stat in [
-            "strength", "agility", "durability", "endurance", "intellect"
-    ]:
+    for stat in ["strength", "agility", "durability", "endurance", "intellect"]:
         await ctx.send(f"Введите {stat} (1-100):")
         try:
             msg = await bot.wait_for(
                 'message',
                 timeout=30.0,
-                check=lambda m: m.author == ctx.author and m.content.isdigit())
-            stats[stat] = min(100, max(1, int(
-                msg.content)))  # Ограничиваем значения в диапазоне 1-100
+                check=lambda m: m.author == ctx.author and m.content.isdigit()
+            )
+            stats[stat] = min(100, max(1, int(msg.content)))  # Ограничиваем значения
         except:
             await ctx.send(
                 f"{ctx.author.mention}, вы не ответили вовремя. Регистрация отменена."
@@ -126,7 +133,7 @@ async def register(ctx):
 
     player = {
         "_id": user_id,
-        "name": name,  # Добавлено имя персонажа
+        "name": name,
         "strength": stats["strength"],
         "agility": stats["agility"],
         "durability": stats["durability"],
@@ -163,26 +170,28 @@ async def leaderboard(ctx):
 
 # Команда обновления OS
 @bot.command()
-async def update_os(ctx):
-    user_id = str(ctx.author.id)
+async def update_os(ctx, member: discord.Member = None):
+    target = member if member else ctx.author
+    user_id = str(target.id)
     player = await collection.find_one({"_id": user_id})
+    
     if not player:
-        await ctx.send("Вы не зарегистрированы!")
+        await ctx.send(f"{target.mention} не зарегистрирован!")
         return
 
+    # Расчёт OS и ранга
     os = calculate_os(player)
     rank = determine_rank(
-        sum(player[key] for key in
-            ["strength", "agility", "durability", "endurance", "intellect"]))
-    await collection.update_one({"_id": user_id},
-                                {"$set": {
-                                    "os": os,
-                                    "rank": rank
-                                }})
+        sum(player[key] for key in ["strength", "agility", "durability", "endurance", "intellect"])
+    )
+    await collection.update_one({"_id": user_id}, {"$set": {"os": os, "rank": rank}})
     await ctx.send(
-        embed=discord.Embed(title="OS обновлено!",
-                            description=f"Новый OS: {os}\nВаш ранг: {rank}",
-                            color=discord.Color.purple()))
+        embed=discord.Embed(
+            title="OS обновлено!",
+            description=f"Новый OS: {os}\nВаш ранг: {rank}",
+            color=discord.Color.purple()
+        )
+    )
 
 
 # Команда сброса персонажа
@@ -347,8 +356,8 @@ async def help_commands(ctx):
         color=discord.Color.blue()
     )
     embed.add_field(
-        name="!register",
-        value="Регистрация нового персонажа. Укажите имя и характеристики.",
+        name="!register [@пользователь]",
+        value="Регистрирует персонажа. Если указан пинг, регистрирует другого пользователя (требуются права администратора). Если пинг не указан, регистрирует персонажа для отправителя.",
         inline=False
     )
     embed.add_field(
@@ -382,8 +391,8 @@ async def help_commands(ctx):
         inline=False
     )
     embed.add_field(
-        name="!update_os",
-        value="Обновляет OS (общую силу) и ранг персонажа на основе текущих характеристик.",
+        name="!update_os [@пользователь]",
+        value="Обновляет OS и ранг персонажа. Если указан пинг, обновляет данные другого пользователя, иначе — обновляет данные отправителя.",
         inline=False
     )
     embed.add_field(
