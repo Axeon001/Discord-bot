@@ -367,8 +367,9 @@ async def help_commands(ctx):
         inline=False
     )
     embed.add_field(
-        name="!interface",
-        value="Показывает интерфейс текущего персонажа с его характеристиками.",
+        name="!interface [@пользователь]",
+        value="Показывает интерфейс текущего персонажа или персонажа другого пользователя, если указан пинг.
+",
         inline=False
     )
     embed.add_field(
