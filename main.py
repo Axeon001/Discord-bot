@@ -327,6 +327,14 @@ async def add_points(ctx, stat: str, points: int, member: discord.Member = None)
         return
 
     target = member if member else ctx.author
+
+    # Если пользователь пытается распределить очки другому и не является администратором
+    if member and target != ctx.author and not ctx.author.guild_permissions.administrator:
+        await ctx.send(
+            "Вы не можете распределять очки другим пользователям без прав администратора."
+        )
+        return
+
     user_id = str(target.id)
     player = await collection.find_one({"_id": user_id})
     if not player:
@@ -336,7 +344,7 @@ async def add_points(ctx, stat: str, points: int, member: discord.Member = None)
     available_points = player.get("points", 0)
     if points > available_points:
         await ctx.send(
-            f"Недостаточно очков! У вас доступно всего {available_points} очков.")
+            f"Недостаточно очков! У {target.mention} доступно всего {available_points} очков.")
         return
 
     new_value = player[stat] + points
@@ -409,7 +417,7 @@ async def help_commands(ctx):
     )
     embed.add_field(
         name="!add_points [характеристика] [число] [@пользователь]",
-        value="Добавляет очки в указанную характеристику текущего или другого пользователя. Очки берутся из доступных очков.",
+        value="Добавляет очки в указанную характеристику текущему пользователю. Очки берутся из доступных очков.Распределение очков другим игрокам невозможно для юзеров без прав [администратор].",
         inline=False
     )
     embed.add_field(
