@@ -219,6 +219,7 @@ async def reset(ctx, member: discord.Member = None):
 
 
 @bot.command()
+@commands.has_permissions(administrator=True)  # Проверка прав администратора
 async def edit(ctx, stat: str, value: int, member: discord.Member = None):
     if stat not in ["strength", "agility", "durability", "endurance", "intellect"]:
         await ctx.send(
@@ -232,6 +233,7 @@ async def edit(ctx, stat: str, value: int, member: discord.Member = None):
 
     target = member if member else ctx.author
     user_id = str(target.id)
+
     player = await collection.find_one({"_id": user_id})
     if not player:
         await ctx.send(f"{target.mention} не зарегистрирован!")
@@ -278,6 +280,7 @@ async def interface(ctx, member: discord.Member = None):
 
 
 @bot.command()
+@commands.has_permissions(administrator=True)  # Проверка прав администратора
 async def add_exp(ctx, exp: int, member: discord.Member = None):
     if exp <= 0:
         await ctx.send("Количество опыта должно быть положительным.")
@@ -285,6 +288,7 @@ async def add_exp(ctx, exp: int, member: discord.Member = None):
 
     target = member if member else ctx.author
     user_id = str(target.id)
+
     player = await collection.find_one({"_id": user_id})
     if not player:
         await ctx.send(f"{target.mention} не зарегистрирован!")
