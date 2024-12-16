@@ -350,6 +350,34 @@ async def add_points(ctx, stat: str, points: int, member: discord.Member = None)
         color=discord.Color.green()))
 
 @bot.command()
+async def give_points(ctx, points: int, member: discord.Member = None):
+    # Проверяем, чтобы количество очков было положительным
+    if points <= 0:
+        await ctx.send("Количество очков должно быть положительным.")
+        return
+
+    # Определяем, кому выдавать очки (пинг или отправитель команды)
+    target = member if member else ctx.author
+    user_id = str(target.id)
+
+    # Ищем пользователя в базе данных
+    player = await collection.find_one({"_id": user_id})
+    if not player:
+        await ctx.send(f"{target.mention} не зарегистрирован!")
+        return
+
+    # Обновляем количество очков
+    current_points = player.get("points", 0)
+    new_points = current_points + points
+    await collection.update_one({"_id": user_id}, {"$set": {"points": new_points}})
+
+    # Отправляем подтверждение
+    await ctx.send(embed=discord.Embed(
+        title="Очки выданы!",
+        description=f"{points} очков добавлено {target.mention}.\nТекущие очки: {new_points}",
+        color=discord.Color.green()))
+
+@bot.command()
 async def help_commands(ctx):
     embed = discord.Embed(
         title="Список доступных команд",
@@ -394,6 +422,11 @@ async def help_commands(ctx):
     embed.add_field(
         name="!update_os [@пользователь]",
         value="Обновляет OS и ранг персонажа. Если указан пинг, обновляет данные другого пользователя, иначе — обновляет данные отправителя.",
+        inline=False
+    )
+    embed.add_field(
+        name="!give_points [количество] [@пользователь]",
+        value="Добавляет указанное количество очков указанному пользователю. Если пользователь не указан, очки добавляются отправителю. Эти очки можно использовать через команду `!add_points`.",
         inline=False
     )
     embed.add_field(
