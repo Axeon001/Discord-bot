@@ -350,31 +350,24 @@ async def add_points(ctx, stat: str, points: int, member: discord.Member = None)
         color=discord.Color.green()))
 
 @bot.command()
+@commands.has_permissions(administrator=True)
 async def give_points(ctx, points: int, member: discord.Member = None):
-    # Проверяем, чтобы количество очков было положительным
     if points <= 0:
         await ctx.send("Количество очков должно быть положительным.")
         return
 
-    # Определяем, кому выдавать очки (пинг или отправитель команды)
     target = member if member else ctx.author
     user_id = str(target.id)
 
-    # Ищем пользователя в базе данных
     player = await collection.find_one({"_id": user_id})
     if not player:
         await ctx.send(f"{target.mention} не зарегистрирован!")
         return
 
-    # Обновляем количество очков
-    current_points = player.get("points", 0)
-    new_points = current_points + points
-    await collection.update_one({"_id": user_id}, {"$set": {"points": new_points}})
-
-    # Отправляем подтверждение
+    await collection.update_one({"_id": user_id}, {"$inc": {"points": points}})
     await ctx.send(embed=discord.Embed(
-        title="Очки выданы!",
-        description=f"{points} очков добавлено {target.mention}.\nТекущие очки: {new_points}",
+        title="Очки добавлены!",
+        description=f"{points} очков добавлено {target.mention}.\nТеперь у него доступно: {player.get('points', 0) + points} очков.",
         color=discord.Color.green()))
 
 @bot.command()
