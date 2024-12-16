@@ -245,14 +245,15 @@ async def edit(ctx, stat: str, value: int, member: discord.Member = None):
 
 
 @bot.command()
-async def interface(ctx):
-    target = ctx.author
+async def interface(ctx, member: discord.Member = None):
+    # Если указан пинг, получаем данные для указанного пользователя, иначе — для отправителя
+    target = member if member else ctx.author
     user_id = str(target.id)
 
     try:
         player = await collection.find_one({"_id": user_id})
         if not player:
-            await ctx.send("Вы ещё не зарегистрированы.")
+            await ctx.send(f"{target.mention} ещё не зарегистрирован.")
             return
 
         # Создаём embed с данными игрока
